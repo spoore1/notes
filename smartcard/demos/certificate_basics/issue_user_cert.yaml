@@ -1,0 +1,39 @@
+---
+- name: Issue User Certificate
+  hosts: all
+  vars:
+    ca_dir: /opt/test_ca
+    username: testuser1
+    create_user: false
+  tasks:
+    - name: Add User if indicated
+      user:
+        name: "{{ username }}"
+      when: create_user
+
+    - name: Copy user certificate config file
+      template:
+        src: user.cnf.j2
+        dest: "{{ ca_dir }}/req_{{ username }}.cnf"
+
+    - name: Generate User Private Key
+      shell: |
+        openssl genrsa -out {{ username }}.key 2048
+      args:
+        chdir: "{{ ca_dir }}"
+
+    - name: Generate Certificate Signing Request
+      shell: |
+        openssl req -new -nodes -key {{ username }}.key \
+            -reqexts req_exts -config req_{{ username }}.cnf -out {{ username }}.csr
+      args:
+        chdir: "{{ ca_dir }}"
+
+    - name: Sign Certificate with CA
+      shell: |
+        openssl ca -config ca.cnf -batch -notext \
+            -keyfile rootCA.key -in {{ username }}.csr -days 365 \
+            -extensions usr_cert -out {{ username }}.crt
+      args:
+        chdir: "{{ ca_dir }}"
+  

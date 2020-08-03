@@ -1,0 +1,79 @@
+---
+- name: Setup OpenSSL CA
+  hosts: all
+  vars:
+    ca_dir: /opt/test_ca
+    rand_serial: "{{ 100000 | random }}"
+  tasks:
+    - name: Check if ca_dir exists
+      stat:
+        path:  "{{ ca_dir }}"
+      register: ca_dir_check
+
+    - name: Backup ca_dir if it exists
+      copy:
+        remote_src: True
+        directory_mode: True
+        src: "{{ ca_dir }}/"
+        dest: "{{ ca_dir }}.backup.{{ ansible_date_time.iso8601_basic_short }}"
+      when: ca_dir_check.stat.exists
+
+    - name: Remove ca_dir after backup
+      file:
+        state: absent
+        path: "{{ ca_dir }}"
+      when: ca_dir_check.stat.exists
+
+    - name: Create ca_dir
+      file:
+        state: directory
+        path: "{{ ca_dir }}"
+
+    - name: Copy ca.cnf to hosts
+      template:
+        src: ca.cnf.j2
+        dest: "{{ ca_dir }}/ca.cnf"
+
+    - name: Create CA Directories
+      file:
+        state: directory
+        path: "{{ ca_dir }}/{{ item }}"
+      loop:
+        - certs
+        - crl
+        - newcerts
+
+    - name: Create CA Files
+      file:
+        state: touch
+        path: "{{ ca_dir }}/{{ item }}"
+      loop:
+        - serial
+        - index.txt
+        - crlnumber
+        - index.txt.attr
+
+    - name: Set Serial number
+      copy:
+        content: "{{ '%06d'|format(rand_serial|int) }}"
+        dest: "{{ ca_dir }}/serial"
+
+    - name: Create CA Private Key
+      shell: |
+        openssl genrsa -out rootCA.key 2048
+      args:
+        chdir: "{{ ca_dir }}"
+
+    - name: Create CA Certificate
+      shell: |
+        openssl req -batch -config ca.cnf \
+            -x509 -new -nodes -key rootCA.key -sha256 -days 10000 \
+            -set_serial 0 -extensions v3_ca -out rootCA.crt
+      args:
+        chdir: "{{ ca_dir }}"
+
+    - name: Create CA CRL
+      shell: |
+        openssl ca -config ca.cnf -gencrl -out crl/root.crl
+      args:
+        chdir: "{{ ca_dir }}"

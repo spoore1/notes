@@ -1,0 +1,2 @@
+[all]
+myhost.example.test ansible_python_interpreter=/usr/libexec/platform-python
