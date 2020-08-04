@@ -1,0 +1,19 @@
+[sssd]
+debug_level = 9
+services = nss, pam
+domains = shadowutils
+
+[nss]
+debug_level = 9
+
+[pam]
+debug_level = 9
+pam_cert_auth = True
+
+[domain/shadowutils]
+debug_level = 9
+id_provider = files
+
+[certmap/shadowutils/{{ username }}]
+debug_level = 9
+matchrule = <SUBJECT>.*CN={{ username }}*

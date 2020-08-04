@@ -1,0 +1,41 @@
+---
+- name: Setup sssd for virtual smart card testing
+  hosts: all
+  vars:
+    username: testuser1
+    ca_dir: /opt/test_ca
+    sssd_conf: /etc/sssd/sssd.conf
+    root_ca: "{{ ca_dir }}/rootCA.crt"
+  tasks:
+    - name: Setup sssd config file
+      template:
+        src: sssd.conf.j2
+        dest: "{{ sssd_conf }}"
+        mode: 0600
+
+    - name: Add Root CA Cert to SSSD bundle
+      shell: |
+        set -e
+        cat {{ root_ca }} >> /etc/sssd/pki/sssd_auth_ca_db.pem
+        touch {{ ca_dir }}/rootca_added_to_sssd.done
+      args:
+        creates: "{{ ca_dir }}/rootca_added_to_sssd.done"
+  
+    - name: Run authselect to enable smartcard use
+      shell: |
+        set -e
+        authselect select sssd with-smartcard --force
+        touch {{ ca_dir }}/authselect.done
+      args:
+        creates: "{{ ca_dir }}/authselect.done"
+
+    - name: restart pcscd, virt_cacard, and sssd
+      systemd:
+        name: "{{ item }}"
+        daemon_reload: yes
+        state: restarted
+        enabled: yes
+      loop:
+        - pcscd
+        - virt_cacard
+        - sssd

@@ -1,0 +1,142 @@
+---
+- name: Setup Virtual Smart Cards
+  hosts: all
+  vars:
+    vsmartcard_repo: jjelen/vsmartcard
+    ca_dir: /opt/test_ca 
+    sopin: 12345678
+    pin: 123456
+    libsofthsm: /usr/lib64/pkcs11/libsofthsm2.so
+    softhsm_cfg: "{{ ca_dir }}/softhsm2.conf"
+    nssdb: "{{ ca_dir }}/db"
+    username: testuser1
+  tasks:
+    - name: Enable idm module
+      shell: |
+        set -e
+        dnf -y module enable idm:DL1
+        touch {{ ca_dir }}/dnf_idm_enable.done
+      when: ansible_distribution == "RedHat" and 
+            ansible_distribution_major_version >= '8'
+      args:
+        creates: "{{ ca_dir }}/dnf_idm_enable.done"        
+
+    - name: Install basic RPMs
+      package:
+        name: "{{ item }}"
+      loop:
+        - opensc
+        - openssl
+        - gnutls-utils
+        - softhsm
+        - nss-tools
+
+    - name: Enable vsmartcard copr repo
+      command:
+        cmd: dnf -y copr enable {{ vsmartcard_repo }}
+        creates: /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:jjelen:vsmartcard.repo
+
+    - name: Install virtual smartcard packages
+      package:
+        name: "{{ item }}"
+      loop:
+        - virt_cacard
+        - vpcd
+
+    - name: Create softhsm2 config
+      template:
+        src: softhsm2.conf.j2
+        dest: "{{ softhsm_cfg }}"
+
+    - name: Create tokens dir
+      file: 
+        path: "{{ ca_dir }}/tokens"
+        state: directory
+
+    - name: Initialize softhsm2 token
+      shell: |
+        softhsm2-util --init-token --slot 0 --label "SC test" \
+          --so-pin={{ sopin }} --pin={{ pin }}
+      environment:
+        SOFTHSM2_CONF: "{{ softhsm_cfg }}"
+      args:
+        chdir: "{{ ca_dir }}"
+        creates: "{{ ca_dir }}/softhsm2_init.done"
+
+    - name: Touch file to indicate softhsm2 initialize is done
+      command:
+        cmd: touch {{ ca_dir }}/softhsm2_init.done
+      args:
+        creates: "{{ ca_dir }}/softhsm2_init.done"
+
+    - name: Create NSSDB
+      file:
+        path: "{{ nssdb }}"
+        state: directory
+
+    - name: modutil create NSSDB
+      command:
+        cmd: "modutil -create -dbdir sql:{{ nssdb }} -force"
+      args:
+        creates: "{{ nssdb }}/pkcs11.txt"
+
+    - name: see if p11-kit-proxy configured
+      shell: |
+        modutil -list -dbdir sql:{{ nssdb }} -libfile {{ libsofthsm }} | \
+          grep 'library name: p11-kit-proxy.so'
+      ignore_errors: yes
+      register: check_p11_kit_proxy
+
+    - name: Add SoftHSM if p11-kit-proxy
+      shell: |
+        modutil -force -add 'SoftHSM PKCS#11' \
+          -dbdir sql:{{ nssdb }} -libfile {{ libsofthsm }}
+      when: check_p11_kit_proxy.rc == 1
+  
+    - name: Create pcscd semodule file
+      copy:
+        content: "(allow pcscd_t node_t (tcp_socket (node_bind)))"
+        dest: "{{ ca_dir }}/virtcacard.cil"
+
+    - name: Install semodule
+      shell: |
+        set -e
+        semodule -i {{ ca_dir }}/virtcacard.cil
+        touch {{ ca_dir }}/virtcacard.cil.done
+      args:
+        chdir: "{{ ca_dir }}"
+        creates: "{{ ca_dir }}/virtcacard.cil.done"
+
+    - name: Copy pcscd service config file
+      copy:
+        src: /usr/lib/systemd/system/pcscd.service
+        dest: /etc/systemd/system/pcscd.service
+        remote_src: True
+
+    - name: Remove --auto-exit from pcscd service
+      replace:
+        path: /etc/systemd/system/pcscd.service
+        regexp: ' --auto-exit'
+
+    - name: Copy virt_cacard.service file
+      template:
+        src: virt_cacard.service.j2
+        dest: /etc/systemd/system/virt_cacard.service
+
+    - name: disable virt_cacard in p11-kit opensc module
+      lineinfile:
+        path: /usr/share/p11-kit/modules/opensc.module
+        line: "disable-in: virt_cacard"
+
+    - name: restart pcscd
+      systemd:
+        name: pcscd
+        daemon_reload: yes
+        state: restarted
+
+    - name: start and enable virt_cacard service
+      systemd:
+        name: virt_cacard
+        daemon_reload: yes
+        state: started
+        enabled: yes

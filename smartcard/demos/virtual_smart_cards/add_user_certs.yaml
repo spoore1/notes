@@ -1,0 +1,42 @@
+---
+- name: Setup Virtual Smart Cards
+  hosts: all
+  vars:
+    username: testuser1
+    pin: 123456
+    ca_dir: /opt/test_ca 
+    softhsm_cfg: "{{ ca_dir }}/softhsm2.conf"
+  tasks:
+    - name: Add user key to softhsm token
+      shell: |
+        set -e
+        pkcs11-tool --module libsofthsm2.so --slot-index 0 -w {{ username }}.key \
+          -y privkey --label {{ username }} -p {{ pin }} --set-id 0 -d 0
+        touch {{ ca_dir }}/softhsm_add_user_key.done
+      environment:
+        SOFTHSM2_CONF: "{{ softhsm_cfg }}"
+      args:
+        chdir: "{{ ca_dir }}"
+        creates: "{{ ca_dir }}/softhsm_add_user_key.done"
+
+    - name: Add user certificate to softhsm token
+      shell: |
+        set -e
+        pkcs11-tool --module libsofthsm2.so --slot-index 0 -w {{ username }}.crt \
+          -y cert --label {{ username }} -p {{ pin }} --set-id 0 -d 0
+        touch {{ ca_dir }}/softhsm_add_user_cert.done
+      environment:
+        SOFTHSM2_CONF: "{{ softhsm_cfg }}"
+      args:
+        chdir: "{{ ca_dir }}"
+        creates: "{{ ca_dir }}/softhsm_add_user_cert.done"
+
+    - name: restart pcscd and virt_cacard
+      systemd:
+        name: "{{ item }}"
+        daemon_reload: yes
+        state: restarted
+        enabled: yes
+      loop:
+        - pcscd
+        - virt_cacard
