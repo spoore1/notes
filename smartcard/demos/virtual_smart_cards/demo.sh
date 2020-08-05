@@ -17,7 +17,7 @@ PIN="123456"
 export GNUTLS_PIN=$PIN
 GENERATE_KEYS=1
 PKCS11_TOOL="pkcs11-tool"
-NSSDB=$TESTDIR/nssdb
+NSSDB=$TESTDIR/db
 
 P11LIB="/usr/lib64/pkcs11/libsofthsm2.so"
 
