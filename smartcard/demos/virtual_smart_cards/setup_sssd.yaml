@@ -2,7 +2,7 @@
 - name: Setup sssd for virtual smart card testing
   hosts: all
   vars:
-    username: testuser1
+    username: localuser1
     ca_dir: /opt/test_ca
     sssd_conf: /etc/sssd/sssd.conf
     root_ca: "{{ ca_dir }}/rootCA.crt"

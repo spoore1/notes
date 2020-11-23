@@ -9,7 +9,7 @@
     libsofthsm: /usr/lib64/pkcs11/libsofthsm2.so
     softhsm_cfg: "{{ ca_dir }}/softhsm2.conf"
     nssdb: "{{ ca_dir }}/db"
-    username: testuser1
+    username: localuser1
   tasks:
     - name: Enable idm module
       shell: |

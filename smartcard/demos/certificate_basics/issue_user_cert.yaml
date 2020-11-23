@@ -3,7 +3,7 @@
   hosts: all
   vars:
     ca_dir: /opt/test_ca
-    username: testuser1
+    username: localuser1
     create_user: false
   tasks:
     - name: Add User if indicated

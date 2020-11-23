@@ -48,7 +48,7 @@ fi
 # certificate_basics demo setup script or playbooks
 ###############################################################################
 
-NAME=testuser1
+NAME=localuser1
 
 pkcs11-tool --module libsofthsm2.so --slot-index 0 -w ${NAME}.key -y privkey \
     --label ${NAME} -p $PIN --set-id 0 -d 0
@@ -140,9 +140,9 @@ pam_cert_auth = True
 debug_level = 9
 id_provider = files
 
-[certmap/shadowutils/testuser1]
+[certmap/shadowutils/localuser1]
 debug_level = 9
-matchrule = <SUBJECT>.*CN=testuser1*
+matchrule = <SUBJECT>.*CN=localuser1*
 EOF
 
 chmod 600 /etc/sssd/sssd.conf

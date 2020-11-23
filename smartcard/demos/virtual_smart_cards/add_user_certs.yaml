@@ -2,7 +2,7 @@
 - name: Setup Virtual Smart Cards
   hosts: all
   vars:
-    username: testuser1
+    username: localuser1
     pin: 123456
     ca_dir: /opt/test_ca 
     softhsm_cfg: "{{ ca_dir }}/softhsm2.conf"
