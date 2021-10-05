@@ -1,0 +1,12 @@
+echo "redhat"| ipa user-add otpuser1 --first=test --last=user --password
+echo -e "redhat\nSecret123\nSecret123" | kinit otpuser1
+kdestroy -A
+echo "Secret123" | kinit admin
+
+ipa user-mod --user-auth-type=otp otpuser1
+
+ipa otptoken-add-yubikey --owner=otpuser1 --slot=1
+
+authconfig --disablesmartcard --enablesssd --enablesssdauth --updateall
+systemctl restart sssd gdm
+

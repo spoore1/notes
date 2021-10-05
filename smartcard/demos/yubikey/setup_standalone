@@ -1,0 +1,55 @@
+yum -y install openssl yubico-piv-tool pcsc-lite
+
+mkdir /opt/yubikey_cert
+pushd /opt/yubikey_cert
+
+openssl req -x509 -newkey rsa:2048 -keyout localuser1.key \
+    -out localuser1.crt -days 365 -nodes -subj '/CN=localuser1'
+
+cat localuser1.crt >> /etc/sssd/pki/sssd_auth_ca_db.pem
+
+popd
+
+cat > /etc/sssd/sssd.conf <<EOF
+[sssd]
+debug_level = 9
+services = nss, pam
+domains = shadowutils
+certificate_verification = no_verification
+
+[nss]
+debug_level = 9
+
+[pam]
+debug_level = 9
+pam_cert_auth = True
+
+[domain/shadowutils]
+debug_level = 9
+id_provider = files
+
+[certmap/shadowutils/localuser1]
+debug_level = 9
+matchrule = <SUBJECT>.*CN=localuser1*
+EOF
+
+chmod 600 /etc/sssd/sssd.conf
+authselect select sssd with-smartcard --force
+systemctl stop sssd; rm -rf /var/lib/sss/{db,mc}/*; systemctl start sssd
+
+systemctl start pcscd
+systemctl enable pcscd
+
+useradd -m localuser1
+echo -e 'Secret123\nSecret123' |passwd localuser1
+
+sh -x ./reset_yubikey
+
+pushd /opt/yubikey_cert
+
+yubico-piv-tool -a import-key -s 9a -i localuser1.key
+yubico-piv-tool -a import-certificate -s 9a -i localuser1.crt
+
+popd
+systemctl stop sssd; rm -rf /var/lib/sss/{db,mc}/*; systemctl start sssd; systemctl restart gdm
+

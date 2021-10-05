@@ -1,0 +1,18 @@
+kdestroy -A
+
+echo Secret123|kinit admin
+
+yubico-piv-tool -a generate -s 9a -A RSA2048 -o ipauser1.pub
+
+yubico-piv-tool -a verify -a request -s 9a -P 123456 -S '/CN=ipauser1' -i ipauser1.pub \
+    -o ipauser1.csr
+
+ipa cert-request ipauser1.csr --principal=ipauser1 --certificate-out=ipauser1.crt
+
+yubico-piv-tool -a import-certificate -s 9a -i ipauser1.crt
+
+authconfig --enablesssd --enablesssdauth --enablesmartcard --smartcardmodule=sssd \
+    --smartcardaction=1 --updateall
+
+systemctl restart sssd gdm
+

@@ -1,0 +1,8 @@
+yubico-piv-tool -a verify -P 000000
+yubico-piv-tool -a verify -P 000000
+yubico-piv-tool -a verify -P 000000
+yubico-piv-tool -a unblock-pin -P 000000 -N 000000
+yubico-piv-tool -a unblock-pin -P 000000 -N 000000
+yubico-piv-tool -a unblock-pin -P 000000 -N 000000
+yubico-piv-tool -a reset
+yubico-piv-tool -a status -v

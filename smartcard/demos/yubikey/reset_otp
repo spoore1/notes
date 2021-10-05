@@ -1,0 +1,7 @@
+echo Secret123|kinit admin
+
+for token in $(ipa otptoken-find --pkey-only --raw|grep ipatokenuniqueid|awk '{print $2}'); do
+    ipa otptoken-del $token
+done
+
+ipa user-del otpuser1
