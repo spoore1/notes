@@ -1,0 +1,8 @@
+if [ -f /usr/bin/dnf ]; then
+    PKG=dnf
+else
+    PKG=yum
+fi
+
+$PKG install -y ykpers yubico-piv-tool pcsc-lite
+
