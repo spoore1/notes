@@ -1,9 +1,15 @@
 #!/bin/bash
 
-TESTDIR=/opt/test_ca
+set -e
+
+TESTDIR=/opt/virtual_smartcard
+
+if [ -d $TESTDIR ]; then
+    rm -rf $TESTDIR
+fi
 
 # Needed on RHEL8:
-dnf -y module enable idm:DL1
+#dnf -y module enable idm:DL1
 dnf -y install opensc openssl gnutls-utils softhsm nss-tools
 dnf -y copr enable jjelen/vsmartcard
 dnf -y install virt_cacard vpcd
@@ -42,19 +48,6 @@ modutil -list -dbdir sql:$NSSDB | grep 'library name: p11-kit-proxy.so'
 if [ "$?" = "1" ]; then
     modutil -force -add 'SoftHSM PKCS#11' -dbdir sql:$NSSDB -libfile $P11LIB
 fi
-
-###############################################################################
-# This step relies on the user certificate having been issued during the
-# certificate_basics demo setup script or playbooks
-###############################################################################
-
-NAME=localuser1
-
-pkcs11-tool --module libsofthsm2.so --slot-index 0 -w ${NAME}.key -y privkey \
-    --label ${NAME} -p $PIN --set-id 0 -d 0
-
-pkcs11-tool --module libsofthsm2.so --slot-index 0 -w ${NAME}.crt -y cert \
-        --label ${NAME} -p $PIN --set-id 0 -d 0
 
 ###############################################################################
 
@@ -102,19 +95,19 @@ echo "disable-in: virt_cacard" >> /usr/share/p11-kit/modules/opensc.module
 systemctl restart pcscd virt_cacard
 sleep 10
 
-mkdir /home/$NAME/.ssh
-touch /home/$NAME/.ssh/authorized_keys
-ssh-keygen -D /usr/lib64/pkcs11/opensc-pkcs11.so > /home/$NAME/.ssh/authorized_keys
-chown -R $NAME:$NAME /home/$NAME/.ssh/
-chmod 700 /home/$NAME/.ssh/
-chmod 600 /home/$NAME/.ssh/authorized_keys
+#mkdir /home/$NAME/.ssh
+#touch /home/$NAME/.ssh/authorized_keys
+#ssh-keygen -D /usr/lib64/pkcs11/opensc-pkcs11.so > /home/$NAME/.ssh/authorized_keys
+#chown -R $NAME:$NAME /home/$NAME/.ssh/
+#chmod 700 /home/$NAME/.ssh/
+#chmod 600 /home/$NAME/.ssh/authorized_keys
+#
 
-
-echo "Running dnf groupinstall workstation..."
-dnf -y groupinstall Workstation > /var/log/dnf.groupinstall.Workstation
-systemctl stop libvirtd.service
-systemctl disable libvirtd.service
-systemctl set-default graphical
+#echo "Running dnf groupinstall workstation..."
+#dnf -y groupinstall Workstation > /var/log/dnf.groupinstall.Workstation
+##systemctl stop libvirtd.service
+##systemctl disable libvirtd.service
+#systemctl set-default graphical
 
 echo "Install sssd-tools for running tests..."
 dnf -y install sssd-tools
@@ -146,8 +139,6 @@ matchrule = <SUBJECT>.*CN=localuser1*
 EOF
 
 chmod 600 /etc/sssd/sssd.conf
-
-cat $TESTDIR/rootCA.crt >> /etc/sssd/pki/sssd_auth_ca_db.pem
 
 authselect select sssd with-smartcard --force
 
