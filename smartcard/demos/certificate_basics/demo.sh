@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 TESTDIR=/opt/test_ca
 
 dnf -y install openssl
@@ -63,7 +65,8 @@ EOF
 for dir in certs crl newcerts; do mkdir $dir; done
 touch serial index.txt crlnumber index.txt.attr
 
-echo 01 > serial
+#echo 01 > serial
+openssl rand -hex 16 > serial
 
 openssl genrsa -out rootCA.key 2048
 
@@ -73,39 +76,5 @@ openssl req -batch -config ca.cnf \
 
 openssl ca -config ca.cnf -gencrl -out crl/root.crl
 
-###############################################################################
-# Setup User and Certs on Card
-###############################################################################
-NAME=localuser1
-
-useradd -m $NAME
-echo -e "Secret123\nSecret123" | passwd $NAME
-
-cat > req_${NAME}.cnf <<EOF
-[ req ]
-distinguished_name = req_distinguished_name
-prompt = no
-
-[ req_distinguished_name ]
-O = Example
-OU = Example Test
-CN = ${NAME}
-
-[ req_exts ]
-basicConstraints = CA:FALSE
-nsCertType = client, email
-nsComment = "${NAME}"
-subjectKeyIdentifier = hash
-keyUsage = critical, nonRepudiation, digitalSignature
-extendedKeyUsage = clientAuth, emailProtection, msSmartcardLogin
-subjectAltName = otherName:msUPN;UTF8:${NAME}@EXAMPLE.COM, email:${NAME}@example.com
-EOF
-
-openssl genrsa -out ${NAME}.key 2048
-
-openssl req -new -nodes -key ${NAME}.key \
-    -reqexts req_exts -config req_${NAME}.cnf -out ${NAME}.csr
-
-openssl ca -config ca.cnf -batch -notext \
-    -keyfile rootCA.key -in ${NAME}.csr -days 365 \
-    -extensions usr_cert -out ${NAME}.crt
+mkdir -p /etc/sssd/pki
+cat $TESTDIR/rootCA.crt >> /etc/sssd/pki/sssd_auth_ca_db.pem
