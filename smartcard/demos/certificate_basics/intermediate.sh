@@ -111,8 +111,8 @@ DNS.1 = localhost
 DNS.2 = $(hostname)
 EOF
 
-openssl genrsa -out server.key 4096
-openssl req -new -nodes -key server.key \
+openssl genrsa -passout pass:Secret123 -out server.key 4096
+openssl req -new -passin pass:Secret123 -key server.key \
     -reqexts req_ext -config server.cnf -out server.csr
 openssl ca -config intermediateCA.cnf -batch -notext -keyfile intermediateCA.key \
     -extensions v3_ca -extfile server.cnf \
@@ -167,9 +167,9 @@ princ1=GeneralString:krbtgt
 princ2=GeneralString:\${ENV::REALM}
 EOF
 
-openssl genrsa -out server-kdc.key 2048
+openssl genrsa -passout pass:Secret123 -out server-kdc.key 2048
 
-env REALM=IPA.TEST openssl req -new -nodes -key server-kdc.key \
+env REALM=IPA.TEST openssl req -new -passin pass:Secret123 -key server-kdc.key \
     -config server-kdc.cnf -out server-kdc.csr
 
 env REALM=IPA.TEST openssl ca \
