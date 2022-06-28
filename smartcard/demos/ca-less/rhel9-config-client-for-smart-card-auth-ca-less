@@ -4,10 +4,32 @@
 # client. Configures Smart Card daemon, set the system-wide trust store
 # and configures SSSD to allow smart card logins to desktop
 # ----------------------------------------------------------------------
+if [ "$(id -u)" -ne "0" ]
+then
+  echo "This script has to be run as root user" >&2
+  exit 1
+fi
 SC_CA_CERTS=$@
 if [ -z "$SC_CA_CERTS" ]
 then
   echo "You need to provide one or more paths to the PEM files containing CAs signing the Smart Cards" >&2
+  exit 1
+fi
+for ca_cert in $SC_CA_CERTS
+do
+  if [ ! -f "$ca_cert" ]
+  then
+    echo "Invalid CA certificate filename: $ca_cert" >&2
+    echo "Please check that the path exists and is a valid file" >&2
+    exit 1
+  fi
+done
+# Check whether the credential cache is not empty
+klist
+if [ "$?" -ne "0" ]
+then
+  echo "Credential cache is empty" >&2
+  echo "Use kinit as privileged user to obtain Kerberos credentials" >&2
   exit 1
 fi
 if which yum >/dev/null
