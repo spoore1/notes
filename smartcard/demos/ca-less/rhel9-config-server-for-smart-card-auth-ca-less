@@ -1,0 +1,72 @@
+#!/bin/sh
+# ----------------------------------------------------------------------
+# Instructions for enabling Smart Card authentication on  a single IPA
+# server. Includes Apache configuration, enabling PKINIT on KDC and
+# configuring WebUI to accept Smart Card auth requests. To enable the
+# feature in the whole topology you have to run the script on each
+# master
+# ----------------------------------------------------------------------
+SC_CA_CERTS=$@
+if [ -z "$SC_CA_CERTS" ]
+then
+  echo "You need to provide one or more paths to the PEM files containing CAs signing the Smart Cards" >&2
+  exit 1
+fi
+
+if grep -q 'SSLOCSPEnable ' /etc/httpd/conf.d/ssl.conf
+then
+  sed -i.ipabkp -r 's/^#*[[:space:]]*SSLOCSPEnable[[:space:]]+(on|off)$/SSLOCSPEnable on/' /etc/httpd/conf.d/ssl.conf
+else
+  sed -i.ipabkp '/<\/VirtualHost>/i SSLOCSPEnable on' /etc/httpd/conf.d/ssl.conf
+fi
+
+# finally restart apache
+systemctl restart httpd.service
+
+# store the OCSP upgrade state
+/usr/bin/python3 -c 'from ipaserver.install import sysupgrade; sysupgrade.set_upgrade_state("httpd", "ocsp_enabled", True)'
+
+# This enables smart card login to WebUI
+output=$(ipa service-mod HTTP/$(hostname -f) --ok-to-auth-as-delegate=True 2>&1)
+if [ "$?" -ne "0" -a -z "$(echo $output | grep 'no modifications')" ]
+then
+  echo "Failed to set OK_AS_AUTH_AS_DELEGATE flag on HTTP principal" >&2
+  exit 1
+fi
+# Allow Apache to access SSSD IFP
+/usr/bin/python3 -c "import SSSDConfig; from ipaclient.install.client import sssd_enable_ifp; from ipaplatform.paths import paths; c = SSSDConfig.SSSDConfig(); c.import_config(); sssd_enable_ifp(c, allow_httpd=True); c.write(paths.SSSD_CONF)"
+if [ "$?" -ne "0" ]
+then
+  echo "Failed to modify SSSD config" >&2
+  exit 1
+fi
+# Restart sssd
+systemctl restart sssd
+mkdir -p /etc/sssd/pki
+for ca_cert in $SC_CA_CERTS
+do
+  certutil -d /etc/pki/nssdb -A -i $ca_cert -n "Smart Card CA $(uuidgen)" -t CT,C,C
+  cat $ca_cert >>  /etc/sssd/pki/sssd_auth_ca_db.pem
+done
+for ca_cert in $SC_CA_CERTS
+do
+  ipa-cacert-manage install $ca_cert -t CT,C,C
+  if [ "$?" -ne "0" ]
+  then
+    echo "Failed to install external CA certificate to IPA" >&2
+    exit 1
+  fi
+done
+ipa-certupdate
+if [ "$?" -ne "0" ]
+then
+  echo "Failed to update IPA CA certificate database" >&2
+  exit 1
+fi
+systemctl restart krb5kdc.service
+if [ "$?" -ne "0" ]
+then
+  echo "Failed to restart KDC. Please restart the service manually." >&2
+  exit 1
+fi
+
