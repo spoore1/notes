@@ -44,8 +44,9 @@ basicConstraints       = CA:true
 keyUsage               = critical, digitalSignature, cRLSign, keyCertSign
 
 [ v3_intermediate_ca ]
-subjectKeyIdentifier   = hash
-authorityKeyIdentifier = keyid:always,issuer
+# https://github.com/openssl/openssl/issues/22966
+#subjectKeyIdentifier   = hash
+#authorityKeyIdentifier = keyid:always,issuer
 basicConstraints       = critical, CA:true, pathlen:0
 keyUsage               = critical, digitalSignature, cRLSign, keyCertSign
 
