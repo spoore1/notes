@@ -10,6 +10,8 @@ PIN="123456"
 
 pushd $TESTDIR
 
+useradd -m $NAME
+
 if [ ! -f ${CADIR}/${NAME}.key ]; then
     echo "Could not find ${CADIR}/${NAME}.key"
     exit 1

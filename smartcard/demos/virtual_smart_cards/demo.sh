@@ -13,6 +13,7 @@ fi
 dnf -y install opensc openssl gnutls-utils softhsm nss-tools
 dnf -y copr enable jjelen/vsmartcard
 dnf -y install virt_cacard vpcd
+dnf -y install sssd-proxy
 
 mkdir -p $TESTDIR
 pushd $TESTDIR
@@ -131,7 +132,9 @@ pam_cert_auth = True
 
 [domain/shadowutils]
 debug_level = 9
-id_provider = files
+id_provider = proxy
+proxy_lib_name = files
+local_auth_policy = enable:smartcard
 
 [certmap/shadowutils/localuser1]
 debug_level = 9
