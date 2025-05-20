@@ -1,0 +1,53 @@
+This is a basic demo to setup an IPA server and client using ansible-freeipa.
+
+git clone https://github.com/freeipa/ansible-freeipa
+
+pushd ansible-freeipa
+
+(cat playbooks/install-cluster.yml;
+ sed 's/---//' playbooks/install-smartcard-server.yml;
+ sed 's/---//' playbooks/install-smartcard-clients.yml) > playbooks/scte.yaml
+
+cat > inventory/inventory_smartcard.yaml <<EOF
+[ipaserver]
+SERVER_NAME
+
+[ipaserver:vars]
+ipaserver_setup_dns=yes
+ipaserver_forwarders=10.11.5.160
+
+[ipaclients]
+CLIENT_NAME
+
+[ipaclients:vars]
+ipaclient_allow_repair=yes
+ipaclient_configure_dns_resolver=yes
+ipaclient_dns_servers=SERVER_IP
+
+[ipa:children]
+ipaserver
+ipaclients
+
+[ipa:vars]
+ipaadmin_password=Secret123
+ipadm_password=Secret123
+ipaserver_domain=smartcard.test
+ipaserver_realm=SMARTCARD.TEST
+ipasmartcard_server_ca_certs=/etc/ipa/ca.crt
+ansible_user=root
+EOF
+
+# Change SERVER_NAME, CLIENT_NAME, and SERVER_IP to match your test hosts
+vim inventory/inventory_smartcard.yaml
+
+# Now install IPA and setup server and clients:
+ansible-playbook -vv -i inventory/inventory_smartcard.yaml playbooks/scte.yaml
+
+# Get playbook to setup virtual smart card demo
+pushd playbooks
+wget https://raw.githubusercontent.com/spoore1/notes/refs/heads/master/smartcard/demos/virtual_smart_cards/ansible_freeipa_virtual_smartcard_demo.yaml
+popd
+
+# Run virtual smart card demo setup
+ansible-playbook -vv -i inventory/inventory_smartcard.yaml playbooks/ansible_freeipa_virtual_smartcard_demo.yaml
+
