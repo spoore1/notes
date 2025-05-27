@@ -51,3 +51,6 @@ popd
 # Run virtual smart card demo setup
 ansible-playbook -vv -i inventory/inventory_smartcard.yaml playbooks/ansible_freeipa_virtual_smartcard_demo.yaml
 
+# After virtual smart card setup, you can test with nested su:
+# should prompt for PIN.  enter 123456, then it should return username
+su - ipauser1 -c 'su - ipauser1 -c whoami'
