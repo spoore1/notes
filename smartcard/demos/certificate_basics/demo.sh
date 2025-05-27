@@ -37,6 +37,8 @@ name_opt         = ca_default
 cert_opt         = ca_default
 copy_extensions  = copy
 
+UID              = 0.9.2342.19200300.100.1.1
+
 [ usr_cert ]
 authorityKeyIdentifier = keyid, issuer
 
@@ -50,6 +52,7 @@ keyUsage               = critical, digitalSignature, cRLSign, keyCertSign
 organizationName       = supplied
 organizationalUnitName = supplied
 commonName             = supplied
+UID                    = optional
 emailAddress           = optional
 
 [ req ]

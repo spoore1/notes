@@ -31,6 +31,7 @@ prompt = no
 O = IdM Example
 OU = IdM Example Test Users
 CN = ${NAME}
+UID = ${NAME}
 
 [ req_exts ]
 basicConstraints = CA:FALSE
